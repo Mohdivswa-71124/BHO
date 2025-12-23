@@ -7,6 +7,10 @@ from datetime import datetime
 from typing import Literal
 import sqlite3
 import os
+import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -137,6 +141,34 @@ async def save_resource(resource: ResourceCreate):
         row = cursor.fetchone()
         conn.close()
 
+        # Send to external webhook if configured
+        webhook_url = os.getenv("EXTERNAL_WEBHOOK_URL")
+        webhook_token = os.getenv("EXTERNAL_WEBHOOK_TOKEN")
+
+        if webhook_url:
+            try:
+                print(f"🚀 Sending to webhook: {webhook_url}")
+                async with httpx.AsyncClient() as client:
+                    headers = {}
+                    if webhook_token:
+                        headers["Authorization"] = f"Bearer {webhook_token}"
+                    
+                    payload = {
+                        "id": row[0],
+                        "title": row[1],
+                        "url": row[2],
+                        "type": row[3],
+                        "created_at": row[4]
+                    }
+                    
+                    response = await client.post(webhook_url, json=payload, headers=headers)
+                    if response.status_code >= 200 and response.status_code < 300:
+                        print("✅ Webhook sent successfully")
+                    else:
+                        print(f"⚠️ Webhook failed with status: {response.status_code}")
+            except Exception as e:
+                print(f"❌ Failed to send webhook: {e}")
+
         return ResourceResponse(
             id=row[0],
             title=row[1],
@@ -203,7 +235,8 @@ async def delete_resource(resource_id: int):
 
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.getenv("PORT", 8000))
     print("\n🚀 Starting Resource Saver API...")
-    print("📡 Server running at http://localhost:8080")
-    print("📚 API docs at http://localhost:8080/docs\n")
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    print(f"📡 Server running at http://localhost:{port}")
+    print(f"📚 API docs at http://localhost:{port}/docs\n")
+    uvicorn.run(app, host="0.0.0.0", port=port)

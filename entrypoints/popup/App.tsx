@@ -247,7 +247,7 @@ function App() {
 
       setStatus('success');
       setMessage('Resource saved successfully!');
-      
+
       // Auto-hide success message after 2 seconds
       setTimeout(() => {
         setStatus('idle');
@@ -322,7 +322,7 @@ function App() {
             ))}
             <option value="__add_new__">➕ Add New Type...</option>
           </select>
-          
+
           {/* Add New Type Input */}
           {showAddType && (
             <div style={styles.addTypeRow}>
@@ -407,7 +407,7 @@ function App() {
 
       {/* Footer */}
       <p style={styles.footer}>
-        Resources are saved to localhost:8080
+        Resources are saved to {API_BASE_URL.replace('http://', '').replace('https://', '')}
       </p>
     </div>
   );
