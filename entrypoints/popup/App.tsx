@@ -25,6 +25,8 @@ const styles = {
     padding: '20px',
     fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
     overflow: 'auto',
+    display: 'flex',
+    flexDirection: 'column' as const,
   },
   header: {
     textAlign: 'center' as const,
@@ -136,7 +138,8 @@ const styles = {
     textAlign: 'center' as const,
     color: '#64748b',
     fontSize: '12px',
-    marginTop: '16px',
+    marginTop: 'auto',
+    paddingTop: '16px',
   },
   addTypeRow: {
     display: 'flex',
@@ -165,6 +168,35 @@ const styles = {
     cursor: 'pointer',
     whiteSpace: 'nowrap' as const,
   },
+  profileRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px',
+    padding: '8px 12px',
+    backgroundColor: 'rgba(51, 65, 85, 0.3)',
+    borderRadius: '8px',
+    border: '1px solid rgba(71, 85, 105, 0.3)',
+  },
+  userEmail: {
+    color: '#94a3b8',
+    fontSize: '12px',
+    fontWeight: '500',
+    maxWidth: '180px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+  },
+  logoutBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#f87171',
+    fontSize: '12px',
+    cursor: 'pointer',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontWeight: '600',
+  }
 };
 
 // Load custom types from localStorage
@@ -191,10 +223,15 @@ function App() {
   const [newTypeName, setNewTypeName] = useState<string>('');
   const [showAddType, setShowAddType] = useState<boolean>(false);
 
+  // Auth state
+  const [userEmail, setUserEmail] = useState<string | null>(localStorage.getItem('userEmail'));
+  const [loginEmail, setLoginEmail] = useState<string>('');
+
   // Load custom types on mount
   useEffect(() => {
     setCustomTypes(loadCustomTypes());
   }, []);
+
   // Fetch current tab info on mount
   useEffect(() => {
     const fetchTabInfo = async () => {
@@ -215,8 +252,30 @@ function App() {
       }
     };
 
-    fetchTabInfo();
-  }, []);
+    if (userEmail) {
+      fetchTabInfo();
+    }
+  }, [userEmail]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginEmail && /^\S+@\S+\.\S+$/.test(loginEmail)) {
+      localStorage.setItem('userEmail', loginEmail);
+      setUserEmail(loginEmail);
+    } else {
+      setStatus('error');
+      setMessage('Please enter a valid email');
+      setTimeout(() => {
+        setStatus('idle');
+        setMessage('');
+      }, 2000);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('userEmail');
+    setUserEmail(null);
+  };
 
   const handleSave = async () => {
     if (!tabInfo.url || !tabInfo.title) {
@@ -233,16 +292,19 @@ function App() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: JSON.stringify({
           title: tabInfo.title,
           url: tabInfo.url,
           type: resourceType,
+          userEmail: userEmail, // Send the logged-in user's email
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save resource');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to save resource');
       }
 
       setStatus('success');
@@ -259,6 +321,52 @@ function App() {
     }
   };
 
+  // Login View
+  if (!userEmail) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.header}>
+          <h1 style={styles.title}>
+            <span style={{ fontSize: '28px' }}>🚀</span>
+            Welcome
+          </h1>
+          <p style={styles.subtitle}>Sign in to save resources</p>
+        </div>
+
+        <div style={styles.card}>
+          <form onSubmit={handleLogin}>
+            <div style={styles.fieldGroup}>
+              <label style={styles.label}>Your Email</label>
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                style={styles.input}
+                placeholder="email@example.com"
+                required
+              />
+            </div>
+
+            <button type="submit" style={styles.button}>
+              Get Started ➔
+            </button>
+          </form>
+
+          {message && (
+            <div style={status === 'success' ? styles.successMessage : styles.errorMessage}>
+              {message}
+            </div>
+          )}
+        </div>
+
+        <p style={styles.footer}>
+          Resource Saver v1.0.0
+        </p>
+      </div>
+    );
+  }
+
+  // Main Save View
   return (
     <div style={styles.container}>
       {/* Header */}
@@ -268,6 +376,21 @@ function App() {
           Resource Saver
         </h1>
         <p style={styles.subtitle}>Save resources to your database</p>
+      </div>
+
+      {/* User Profile Info */}
+      <div style={styles.profileRow}>
+        <span style={styles.userEmail} title={userEmail}>
+          👤 {userEmail}
+        </span>
+        <button
+          onClick={handleLogout}
+          style={styles.logoutBtn}
+          onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)'}
+          onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+        >
+          Logout
+        </button>
       </div>
 
       {/* Card */}
@@ -407,7 +530,7 @@ function App() {
 
       {/* Footer */}
       <p style={styles.footer}>
-        Resources are saved to {API_BASE_URL.replace('http://', '').replace('https://', '')}
+        Connected to {API_BASE_URL.replace('http://', '').replace('https://', '')}
       </p>
     </div>
   );
